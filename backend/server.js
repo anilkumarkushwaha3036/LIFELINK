@@ -35,10 +35,7 @@ app.use(express.json());
 // Make Uploads Folder Static
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
 
-// Basic Route for testing
-app.get('/', (req, res) => {
-  res.send('PulseNet Backend System - Active');
-});
+// Note: Base route is handled below based on environment
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -51,6 +48,19 @@ app.use('/api/auth', authRoutes);
 app.use('/api/hospital', hospitalRoutes);
 app.use('/api/donor', donorRoutes);
 app.use('/api/admin', adminRoutes);
+
+// --- Serve Frontend in Production ---
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, '../frontend/dist', 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.send('PulseNet Backend System - Active (Dev Mode)');
+  });
+}
 
 // Socket.io Connection Logic
 io.on('connection', (socket) => {

@@ -1,5 +1,7 @@
 # 🩸 LIFELINK - Emergency Blood Response Grid
 
+🔴 **LIVE DEMO & DEPLOYMENT**: [http://13.203.212.37/](http://13.203.212.37/)
+
 **"Donate Blood. Save Lives. Be the Reason Someone Survives Today."**
 
 LIFELINK is a real-time, mission-critical infrastructure designed to bridge the gap between emergency blood requirements and verified donors. Built on the MERN stack with a focus on high-fidelity telemetry and grid coordination, LIFELINK transforms the passive donor list into an active, responsive emergency network.
@@ -22,6 +24,7 @@ Traditional blood donation apps often rely on static databases and slow communic
 - **Database**: MongoDB with `2dsphere` geospatial indexing.
 - **Real-Time**: Socket.io for emergency override alerts.
 - **Auth**: JWT (JSON Web Tokens) with Role-Based Access Control (RBAC).
+- **Deployment & DevOps**: Docker, AWS EC2, Single-container architecture.
 
 ---
 
@@ -56,7 +59,13 @@ Traditional blood donation apps often rely on static databases and slow communic
 
 ---
 
-## 📦 Installation & Setup
+## 🚀 Deployment (AWS EC2 & Docker)
+
+LIFELINK is fully containerized (Frontend & Backend merged into a single image). To deploy it instantly on an AWS EC2 instance:
+
+---
+
+## 📦 Local Installation & Setup
 
 1. **Clone the repo**:
    ```bash
@@ -80,4 +89,4 @@ Traditional blood donation apps often rely on static databases and slow communic
 
 ---
 
-**Built with Passion for Saving Lives.** 🩸🌐🚩
+**Built with Passion for Saving Lives.** 🩸🌐

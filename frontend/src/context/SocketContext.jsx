@@ -9,7 +9,9 @@ export const SocketProvider = ({ children }) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    const newSocket = io('http://localhost:5000');
+    // Automatically use the correct URL based on environment (development vs production deployment)
+    const socketUrl = import.meta.env.MODE === 'production' ? window.location.origin : 'http://localhost:5000';
+    const newSocket = io(socketUrl);
     setSocket(newSocket);
 
     return () => newSocket.close();
