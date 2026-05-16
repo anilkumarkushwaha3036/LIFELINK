@@ -34,8 +34,8 @@ const LoginPage = () => {
         alert(data.message || 'Authentication Failed');
       }
     } catch (err) {
-      console.error(err);
-      alert('Internal Server Error');
+      console.error('Login Error:', err);
+      alert('Unable to connect to the server. Please check your internet connection and try again.');
     }
   };
 
@@ -114,11 +114,11 @@ const LoginPage = () => {
           </button>
 
           <div className="login-footer">
-            <p>New Donor? <span onClick={() => navigate('/#register')}>Register on Home</span></p>
+            {role === 'donor' && (
+              <p>New Donor? <span onClick={() => navigate('/#register')}>Register on Home</span></p>
+            )}
             {role === 'hospital' && (
-              <p style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.6 }}>
-                New Hospital? Register on Home and await Admin verification.
-              </p>
+              <p>New Hospital? <span onClick={() => navigate('/hospital-registration')}>Register Here</span></p>
             )}
           </div>
         </form>
@@ -141,7 +141,7 @@ const LoginPage = () => {
           margin-bottom: 3rem;
           padding: 6px;
           background: rgba(0, 0, 0, 0.4);
-          border-radius: 12px;
+          border-radius: 6px;
         }
 
         .role-btn {
@@ -151,7 +151,7 @@ const LoginPage = () => {
           align-items: center;
           justify-content: center;
           gap: 0.5rem;
-          border-radius: 8px;
+          border-radius: 3px;
           color: var(--text-muted);
           background: transparent;
           font-size: 0.7rem;
@@ -165,7 +165,6 @@ const LoginPage = () => {
         }
 
         .back-btn { position: absolute; top: 2rem; left: 2rem; background: none; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; }
-        .login-container { width: 100%; max-width: 500px; padding: 4rem 3rem; animation: slideUp 0.6s ease-out; }
         .login-container { width: 100%; max-width: 500px; padding: 4rem 3rem; animation: slideUp 0.6s ease-out; }
         .login-header { text-align: center; margin-bottom: 3rem; }
         .login-header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; }

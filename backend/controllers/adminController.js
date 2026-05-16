@@ -101,7 +101,7 @@ const getGridStats = async (req, res) => {
     // 5. Grid Totals
     const totalDonors = await User.countDocuments({ role: 'donor', verificationStatus: 'Verified' });
     const totalRequests = await Request.countDocuments();
-    const activeEmergencies = await Request.countDocuments({ status: 'Pending' });
+    const activeEmergencies = await Request.countDocuments({ status: 'Searching' });
 
     res.json({
       demandTrends,

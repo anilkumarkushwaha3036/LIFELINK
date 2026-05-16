@@ -1,0 +1,23 @@
+{
+  "name": "lifelink-monorepo",
+  "version": "1.0.0",
+  "description": "LIFELINK — Emergency Blood Response Grid (Full Stack MERN)",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev-backend": "cd backend && npm run dev",
+    "dev-frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start"
+  },
+  "keywords": [
+    "mern",
+    "emergency-response",
+    "blood-donation",
+    "real-time",
+    "socket.io",
+    "geospatial"
+  ],
+  "author": "",
+  "license": "ISC"
+}

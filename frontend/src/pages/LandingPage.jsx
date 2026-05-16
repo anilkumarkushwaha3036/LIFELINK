@@ -21,14 +21,12 @@ import {
 const LandingPage = () => {
   const navigate = useNavigate();
   const [loadingLocation, setLoadingLocation] = useState(false);
-  const [activeRole, setActiveRole] = useState('donor'); // 'donor' or 'hospital'
   const [verificationMethod, setVerificationMethod] = useState('Offline');
   const [formData, setFormData] = useState({
     name: '', email: '', password: '', phone: '',
     bloodGroup: 'A+', 
     latitude: null, longitude: null,
-    file: null,
-    hospitalLicense: ''
+    file: null
   });
 
   const fetchLocation = () => {
@@ -60,22 +58,17 @@ const LandingPage = () => {
     }
 
     const data = new FormData();
-    data.append('role', activeRole);
+    data.append('role', 'donor');
     data.append('name', formData.name);
-    if (activeRole === 'donor') data.append('email', formData.email);
+    data.append('email', formData.email);
     data.append('password', formData.password);
     data.append('phone', formData.phone);
-    if (activeRole === 'donor') data.append('bloodGroup', formData.bloodGroup);
+    data.append('bloodGroup', formData.bloodGroup);
     data.append('latitude', formData.latitude || '');
     data.append('longitude', formData.longitude || '');
-    
-    if (activeRole === 'donor') {
-      data.append('verificationMethod', verificationMethod);
-      if (formData.file) {
-        data.append('verificationDocument', formData.file);
-      }
-    } else {
-      data.append('hospitalLicense', formData.hospitalLicense);
+    data.append('verificationMethod', verificationMethod);
+    if (formData.file) {
+      data.append('verificationDocument', formData.file);
     }
 
     console.log('[Auth] Registering with:', Object.fromEntries(data.entries()));
@@ -93,7 +86,8 @@ const LandingPage = () => {
         alert(result.message || 'Registration failed');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Registration Error:', err);
+      alert('Unable to connect to the server. Please check your internet connection and try again.');
     }
   };
 
@@ -172,57 +166,34 @@ const LandingPage = () => {
          <div className="registration-container glass-panel">
             <div className="form-header">
                <UserCircle2 size={40} color="var(--primary-red)" />
-               <h3>{activeRole === 'donor' ? 'DONOR REGISTRATION' : 'HOSPITAL ONBOARDING'}</h3>
-               <p>{activeRole === 'donor' ? 'Become a registred donor and save lives.' : 'Register your Hospital for connect with LinfeLink.'}</p>
+               <h3>DONOR REGISTRATION</h3>
+               <p>Become a registered donor and save lives.</p>
             </div>
 
-            <div className="role-selector-tabs">
-               <button 
-                 className={`tab-btn ${activeRole === 'donor' ? 'active' : ''}`}
-                 onClick={() => setActiveRole('donor')}
-               >DONOR SIGNUP</button>
-               <button 
-                 className={`tab-btn ${activeRole === 'hospital' ? 'active' : ''}`}
-                 onClick={() => setActiveRole('hospital')}
-               >HOSPITAL SIGNUP</button>
-            </div>
             
             <form onSubmit={handleRegister} className="landing-register-form">
                <div className="form-row">
                   <div className="form-group">
-                    <label>{activeRole === 'donor' ? 'FULL NAME' : 'HOSPITAL NAME'}</label>
+                    <label>FULL NAME</label>
                     <input 
                       type="text" 
-                      placeholder={activeRole === 'donor' ? 'Your Full Name' : 'Ex: City Health Center'}
+                      placeholder="Your Full Name"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
                       required
                     />
                   </div>
-                  {activeRole === 'donor' ? (
-                    <div className="form-group">
-                      <label>BLOOD GROUP</label>
-                      <select 
-                        value={formData.bloodGroup}
-                        onChange={(e) => setFormData({...formData, bloodGroup: e.target.value})}
-                      >
-                        {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
-                          <option key={bg} value={bg}>{bg}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div className="form-group">
-                      <label>HOSPITAL LICENSE ID</label>
-                      <input 
-                        type="text" 
-                        placeholder="Ex: HOSP-7892"
-                        value={formData.hospitalLicense}
-                        onChange={(e) => setFormData({...formData, hospitalLicense: e.target.value})}
-                        required
-                      />
-                    </div>
-                  )}
+                  <div className="form-group">
+                    <label>BLOOD GROUP</label>
+                    <select 
+                      value={formData.bloodGroup}
+                      onChange={(e) => setFormData({...formData, bloodGroup: e.target.value})}
+                    >
+                      {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
+                        <option key={bg} value={bg}>{bg}</option>
+                      ))}
+                    </select>
+                  </div>
                </div>
                
                <div className="form-row">
@@ -251,7 +222,6 @@ const LandingPage = () => {
                   </div>
                </div>
 
-               {activeRole === 'donor' && (
                  <div className="form-group">
                    <label>EMAIL ADDRESS</label>
                    <input 
@@ -262,7 +232,6 @@ const LandingPage = () => {
                      required
                    />
                  </div>
-               )}
 
                <div className="form-group">
                  <label>PASSWORD</label>
@@ -275,56 +244,53 @@ const LandingPage = () => {
                  />
                </div>
 
-               {activeRole === 'donor' && (
-                 <>
-                   <div className="verif-choice-container">
-                      <label>VERIFICATION PATHWAY</label>
-                      <div className="choice-grid">
-                         <div 
-                           className={`choice-card ${verificationMethod === 'Upload' ? 'active' : ''}`}
-                           onClick={() => setVerificationMethod('Upload')}
-                         >
-                            <FileUp size={24} />
-                            <span>Upload Report</span>
-                         </div>
-                         <div 
-                           className={`choice-card ${verificationMethod === 'Offline' ? 'active' : ''}`}
-                           onClick={() => setVerificationMethod('Offline')}
-                         >
-                            <Hospital size={24} />
-                            <span>Offline Test</span>
-                         </div>
-                      </div>
-                   </div>
-
-                   {verificationMethod === 'Upload' && (
-                     <div className="form-group file-upload-group">
-                        <label>SELECT BLOOD REPORT (IMAGE/PDF)</label>
-                        <input 
-                          type="file" 
-                          accept="image/*,.pdf"
-                          onChange={(e) => setFormData({...formData, file: e.target.files[0]})}
-                          required
-                        />
+               <div className="verif-choice-container">
+                  <label>VERIFICATION PATHWAY</label>
+                  <div className="choice-grid">
+                     <div 
+                       className={`choice-card ${verificationMethod === 'Upload' ? 'active' : ''}`}
+                       onClick={() => setVerificationMethod('Upload')}
+                     >
+                        <FileUp size={24} />
+                        <span>Upload Report</span>
                      </div>
-                   )}
-                 </>
+                     <div 
+                       className={`choice-card ${verificationMethod === 'Offline' ? 'active' : ''}`}
+                       onClick={() => setVerificationMethod('Offline')}
+                     >
+                        <Hospital size={24} />
+                        <span>Offline Test</span>
+                     </div>
+                  </div>
+               </div>
+
+               {verificationMethod === 'Upload' && (
+                 <div className="form-group file-upload-group">
+                    <label>SELECT BLOOD REPORT (IMAGE/PDF)</label>
+                    <input 
+                      type="file" 
+                      accept="image/*,.pdf"
+                      onChange={(e) => setFormData({...formData, file: e.target.files[0]})}
+                      required
+                    />
+                 </div>
                )}
 
                <button type="submit" className="btn-primary register-submit-btn">
-                  {activeRole === 'donor' ? 'REGISTER AS DONOR' : 'REGISTER HOSPITAL'}
+                  REGISTER AS DONOR
                </button>
             </form>
          </div>
       </section>
 
+     
       <style jsx>{`
         .landing-page { padding: 1rem 2rem 5rem; max-width: 1400px; margin: 0 auto; }
         .glass-nav { 
           display: flex; justify-content: space-between; align-items: center; 
           padding: 1rem 2rem; background: rgba(24, 25, 28, 0.4); 
           backdrop-filter: blur(10px); border: 1px solid var(--border-light); 
-          border-radius: 16px; position: sticky; top: 1rem; z-index: 100; 
+          border-radius: 6px; position: sticky; top: 1rem; z-index: 100; 
         }
         .logo { font-size: 1.5rem; font-weight: 800; }
 
@@ -353,7 +319,7 @@ const LandingPage = () => {
            color: rgba(255,255,255,0.03); position: absolute; top: 1rem; right: 1.5rem;
         }
         .card-icon {
-           width: 50px; height: 50px; border-radius: 12px; background: rgba(225, 29, 72, 0.1);
+           width: 50px; height: 50px; border-radius: 6px; background: rgba(225, 29, 72, 0.1);
            display: flex; align-items: center; justify-content: center; color: var(--accent-red);
            margin-bottom: 1.5rem;
         }
@@ -372,7 +338,7 @@ const LandingPage = () => {
            display: flex; gap: 1rem; margin-bottom: 3rem; justify-content: center;
         }
         .tab-btn {
-           padding: 10px 20px; border-radius: 30px; border: 1px solid var(--border-light);
+           padding: 10px 20px; border-radius: 6px; border: 1px solid var(--border-light);
            background: rgba(255,255,255,0.05); color: var(--text-muted); font-size: 0.8rem; font-weight: 700;
         }
         .tab-btn.active {
@@ -389,7 +355,7 @@ const LandingPage = () => {
 
         .fetch-btn { 
           display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 100%; 
-          border: 1px dashed var(--border-light); border-radius: 8px; 
+          border: 1px dashed var(--border-light); border-radius: 3px; 
         }
         .fetch-btn.success { border: 1px solid var(--accent-green); color: var(--accent-green); background: rgba(16, 185, 129, 0.05); }
 
@@ -397,7 +363,7 @@ const LandingPage = () => {
         .verif-choice-container label { font-size: 0.75rem; font-weight: 800; color: var(--text-muted); margin-bottom: 1rem; display: block; }
         .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
         .choice-card { 
-          padding: 1.5rem; border: 1px solid var(--border-light); border-radius: 12px; 
+          padding: 1.5rem; border: 1px solid var(--border-light); border-radius: 6px; 
           text-align: center; cursor: pointer; transition: all 0.3s ease; 
           display: flex; flex-direction: column; items: center; gap: 0.75rem; 
           background: rgba(255,255,255,0.02);
@@ -406,7 +372,7 @@ const LandingPage = () => {
         .choice-card.active { border-color: var(--primary-red); background: rgba(225, 29, 72, 0.05); color: white; }
         .choice-card span { font-size: 0.85rem; font-weight: 700; }
 
-        .file-upload-group { background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; border: 1px dashed var(--border-light); }
+        .file-upload-group { background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 6px; border: 1px dashed var(--border-light); }
         .register-submit-btn { width: 100%; padding: 18px; margin-top: 1.5rem; }
 
         .pulse-circle {
@@ -425,7 +391,34 @@ const LandingPage = () => {
            .form-row { grid-template-columns: 1fr; }
         }
       `}</style>
-    </div>
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ </div>
   );
 };
 

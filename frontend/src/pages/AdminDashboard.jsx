@@ -17,6 +17,7 @@ import {
   Server,
   ArrowUpRight
 } from 'lucide-react';
+import Skeleton from 'react-loading-skeleton';
 import '../styles/AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -34,6 +35,7 @@ const AdminDashboard = () => {
     stats: { totalDonors: 0, totalRequests: 0, activeEmergencies: 0 }
   });
   const [loading, setLoading] = useState(true);
+  const [connectingBridgeId, setConnectingBridgeId] = useState(null);
 
   // AUTH GUARD
   useEffect(() => {
@@ -83,12 +85,16 @@ const AdminDashboard = () => {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
+      const data = await res.json();
       if (res.ok) {
         alert('Hospital Node Activated.');
         fetchData();
+      } else {
+        alert(data.message || 'Verification failed');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Approve Hospital Error:', err);
+      alert('Network error: Unable to verify hospital');
     }
   };
 
@@ -99,19 +105,67 @@ const AdminDashboard = () => {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
+      const data = await res.json();
       if (res.ok) {
         alert('Donor Node Activated.');
         fetchData();
+      } else {
+        alert(data.message || 'Verification failed');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Approve Donor Error:', err);
+      alert('Network error: Unable to verify donor');
     }
   };
 
+  const handleBridgeInitialize = (idx) => {
+    setConnectingBridgeId(idx);
+    setTimeout(() => {
+      setConnectingBridgeId(null);
+      setBridgeSuggestions(prev => prev.filter((_, i) => i !== idx));
+    }, 2000);
+  };
+
   if (loading) return (
-    <div className="admin-loading-screen">
-      <div className="pulse-loader"><Globe size={48} color="var(--accent-red)" /></div>
-      <p className="font-mono">INITIALIZING GRID COMMAND INTERFACE...</p>
+    <div className="admin-dashboard-v2">
+      <aside className="admin-sidebar">
+        <div className="sidebar-logo">
+          <Skeleton circle width={32} height={32} />
+          <div style={{ marginLeft: '1rem', width: '100%' }}>
+             <Skeleton width={120} height={24} />
+          </div>
+        </div>
+        <nav className="nav-links" style={{ marginTop: '2rem' }}>
+          <Skeleton height={40} count={5} style={{ marginBottom: '0.5rem', borderRadius: '6px' }} />
+        </nav>
+      </aside>
+      <main className="admin-main-content">
+        <header className="dashboard-header">
+          <div className="header-meta" style={{ width: '100%' }}>
+            <Skeleton width={200} height={32} />
+            <Skeleton width={300} height={16} style={{ marginTop: '0.5rem' }} />
+          </div>
+          <Skeleton width={180} height={36} borderRadius={6} />
+        </header>
+        <div className="bento-grid">
+          <div className="bento-card stat-card"><Skeleton height={80} /></div>
+          <div className="bento-card stat-card"><Skeleton height={80} /></div>
+          <div className="bento-card stat-card"><Skeleton height={80} /></div>
+          
+          <div className="bento-card span-2" style={{ gridColumn: 'span 2', gridRow: 'span 2' }}>
+            <Skeleton height={240} />
+          </div>
+          <div className="bento-card span-2" style={{ gridColumn: 'span 2', gridRow: 'span 2' }}>
+            <Skeleton height={240} />
+          </div>
+          <div className="bento-card span-2" style={{ gridColumn: 'span 2' }}>
+            <Skeleton height={100} />
+          </div>
+          <div className="bento-card span-2 highlight-card">
+            <Skeleton height={150} />
+          </div>
+        </div>
+      </main>
     </div>
   );
 
@@ -256,20 +310,33 @@ const AdminDashboard = () => {
             </div>
 
             {/* Inter-Hospital Coordination / Bridge Engine */}
-            <div className="bento-card span-2 highlight-card">
+            <div className="bento-card" style={{ gridColumn: 'span 2' }}>
               <span className="card-title">LIFELINK BRIDGE (COORDINATION)</span>
               <div className="bridge-list">
-                {bridgeSuggestions.map((s, idx) => (
-                  <div key={idx} className="bridge-suggestion">
-                    <div className="bridge-meta">
-                      <strong>{s.fromHospital}</strong> ➔ <strong>{s.toHospital}</strong>
-                      <p>{s.reason} | PRIORITY: {s.bloodGroup} ({s.priority})</p>
+                {bridgeSuggestions.length === 0 ? (
+                  <p className="font-mono text-dim" style={{ fontSize: '0.8rem' }}>ALL BRIDGES OPTIMIZED.</p>
+                ) : (
+                  bridgeSuggestions.map((s, idx) => (
+                    <div key={idx} className="bridge-suggestion" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                      <div className="bridge-meta" style={{ flex: 1 }}>
+                        <div style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>
+                           <span style={{ fontWeight: 800 }}>{s.fromHospital}</span> 
+                           <span style={{ margin: '0 8px', color: 'var(--text-dim)' }}>➔</span> 
+                           <span style={{ fontWeight: 800 }}>{s.toHospital}</span>
+                        </div>
+                        <p>{s.reason} | PRIORITY: <strong style={{color: 'white'}}>{s.bloodGroup}</strong> ({s.priority})</p>
+                      </div>
+                      <button 
+                        className={`btn-secondary ${connectingBridgeId === idx ? '' : 'pulse-anim'}`} 
+                        onClick={() => handleBridgeInitialize(idx)}
+                        disabled={connectingBridgeId !== null}
+                        style={{ whiteSpace: 'nowrap' }}
+                      >
+                        {connectingBridgeId === idx ? 'LINKING...' : 'INITIALIZE'}
+                      </button>
                     </div>
-                    <button className="btn-v approve pulse-anim" onClick={() => alert("Initializing Bridge Cascade...")}>
-                      INITIALIZE
-                    </button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -364,10 +431,10 @@ const AdminDashboard = () => {
         @keyframes pulseAnim { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
         
         .badge-count {
-          background: var(--accent-red); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: auto;
+          background: var(--accent-red); color: white; padding: 2px 8px; border-radius: 3px; font-size: 0.6rem; margin-left: auto;
         }
         .grid-summary-capsule {
-          padding: 8px 16px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; gap: 8px;
+          padding: 8px 16px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; gap: 8px;
         }
         .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; }
         
@@ -384,7 +451,7 @@ const AdminDashboard = () => {
         .verif-sub-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; }
         .sub-tab { 
           padding: 8px 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border);
-          border-radius: 8px; color: var(--text-dim); cursor: pointer; font-size: 0.8rem; font-weight: 700;
+          border-radius: 3px; color: var(--text-dim); cursor: pointer; font-size: 0.8rem; font-weight: 700;
         }
         .sub-tab.active { background: white; color: black; border-color: white; }
         
@@ -402,7 +469,7 @@ const AdminDashboard = () => {
         .bridge-list { display: flex; flex-direction: column; gap: 1rem; }
         .bridge-suggestion { 
           display: flex; justify-content: space-between; align-items: center;
-          padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 12px;
+          padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 6px;
         }
         .bridge-meta p { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
 

@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Request = require('../models/Request');
+const { sendEmergencySMS } = require('./twilioService');
 
 let _io;
 
@@ -72,6 +73,11 @@ const launchEmergencyCascade = async (requestId) => {
         timeConstraintMinutes,
         escalationLevel
       });
+
+      // SEND TWILIO SMS PING
+      if (donor.phone) {
+        sendEmergencySMS(donor.phone, bloodGroupRequired, `${currentRadiusKm}km`);
+      }
     });
 
     await request.save();

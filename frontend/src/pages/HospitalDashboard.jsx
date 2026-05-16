@@ -22,6 +22,7 @@ import {
   TrendingDown,
   Navigation
 } from 'lucide-react';
+import Skeleton from 'react-loading-skeleton';
 import '../styles/HospitalDashboard.css';
 
 const HospitalDashboard = () => {
@@ -36,6 +37,14 @@ const HospitalDashboard = () => {
   const [gridStats, setGridStats] = useState({ totalDonorsNearby: 0, recentRequests: [] });
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ bloodGroupRequired: 'O+', urgency: 'High' });
+  const [showBridgeAlert, setShowBridgeAlert] = useState(true);
+  const [connectingBridge, setConnectingBridge] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
 
   // AUTH GUARD
   useEffect(() => {
@@ -72,7 +81,7 @@ const HospitalDashboard = () => {
       });
       
       socket.on('match_found', (data) => {
-        alert(`CRITICAL MATCH: ${data.name} is responding!`);
+        showToast(`🩸 CRITICAL MATCH: ${data.name} is responding to the emergency!`, 'critical');
         socket.emit('confirm_match', { requestId: activeRequest?._id });
       });
     }
@@ -93,10 +102,14 @@ const HospitalDashboard = () => {
       const data = await res.json();
       if (res.ok) {
         setActiveRequest(data);
+        showToast('Emergency Alert Broadcasted Successfully!', 'success');
         fetchData();
+      } else {
+        showToast(data.message || 'Failed to broadcast alert', 'critical');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Broadcast Error:', err);
+      showToast('Network error: Unable to connect to server', 'critical');
     }
   };
 
@@ -107,19 +120,71 @@ const HospitalDashboard = () => {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
+      const data = await res.json();
       if (res.ok) {
-        alert('Donor Grid Access Activated.');
+        showToast('Donor Grid Access Activated.', 'success');
         fetchData();
+      } else {
+        showToast(data.message || 'Verification failed', 'critical');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Verification Error:', err);
+      showToast('Network error: Unable to verify donor', 'critical');
     }
   };
 
   if (!user || user.role !== 'hospital') return null;
 
+  if (loading) return (
+    <div className="hospital-eoc">
+      <aside className="eoc-sidebar">
+        <div className="eoc-logo">
+          <Skeleton circle width={32} height={32} />
+          <div style={{ marginLeft: '1rem', width: '100%' }}>
+             <Skeleton width={120} height={24} />
+          </div>
+        </div>
+        <nav className="nav-links" style={{ marginTop: '2rem' }}>
+          <Skeleton height={40} count={3} style={{ marginBottom: '0.5rem', borderRadius: '6px' }} />
+        </nav>
+      </aside>
+      <main className="eoc-main-content">
+        <header className="dashboard-header">
+          <div className="header-meta" style={{ width: '100%' }}>
+            <Skeleton width={200} height={32} />
+            <Skeleton width={300} height={16} style={{ marginTop: '0.5rem' }} />
+          </div>
+          <Skeleton width={150} height={36} borderRadius={6} />
+        </header>
+        <div className="bento-grid">
+          <div className="bento-card"><Skeleton height={80} /></div>
+          <div className="bento-card"><Skeleton height={80} /></div>
+          <div className="bento-card" style={{ gridColumn: 'span 2', gridRow: 'span 2' }}>
+            <Skeleton height={250} />
+          </div>
+          <div className="bento-card" style={{ gridColumn: 'span 2' }}>
+            <Skeleton height={150} />
+          </div>
+          <div className="bento-card" style={{ gridColumn: 'span 2' }}>
+            <Skeleton height={100} />
+          </div>
+          <div className="bento-card span-2 bridge-alert-card">
+            <Skeleton height={80} />
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+
   return (
     <div className="hospital-eoc">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`eoc-toast eoc-toast--${toast.type}`}>
+          {toast.message}
+        </div>
+      )}
+
       {/* Sidebar Navigation */}
       <aside className="eoc-sidebar">
         <div className="eoc-logo">
@@ -256,14 +321,28 @@ const HospitalDashboard = () => {
             </div>
 
             {/* Incoming Bridge / Coordination Alert */}
-            <div className="bento-card span-2 bridge-alert-card">
-               <span className="card-title"><ArrowUpRight size={14} /> INCOMING BRIDGE (COORDINATION)</span>
-               <div className="bridge-alert-content">
-                  <div className="pulse-dot"></div>
-                  <p>ADMIN RECOMMENDATION: Potential O- supply detected at Sector 7 (City Health). Initialize corridor?</p>
-                  <button className="btn-secondary" onClick={() => alert("Connecting with Peer Hospital...")}>ACKNOWLEDGE</button>
-               </div>
-            </div>
+            {showBridgeAlert && (
+              <div className="bento-card" style={{ gridColumn: 'span 4' }}>
+                 <span className="card-title"><ArrowUpRight size={14} /> INCOMING BRIDGE (COORDINATION)</span>
+                 <div className="bridge-alert-content">
+                    <div className="pulse-dot"></div>
+                    <p>ADMIN RECOMMENDATION: Potential O- supply detected at Sector 7 (City Health). Initialize corridor?</p>
+                    <button 
+                      className={`btn-secondary ${connectingBridge ? 'connecting' : ''}`}
+                      onClick={() => {
+                        setConnectingBridge(true);
+                        setTimeout(() => {
+                          setConnectingBridge(false);
+                          setShowBridgeAlert(false);
+                        }, 2000);
+                      }}
+                      disabled={connectingBridge}
+                    >
+                      {connectingBridge ? 'ESTABLISHING LINK...' : 'ACKNOWLEDGE & LINK'}
+                    </button>
+                 </div>
+              </div>
+            )}
 
           </div>
         )}
@@ -308,7 +387,7 @@ const HospitalDashboard = () => {
       </main>
 
       <style jsx>{`
-        .badge-count { background: var(--accent-red); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; margin-left: auto; }
+        .badge-count { background: var(--accent-red); color: white; padding: 2px 8px; border-radius: 3px; font-size: 0.6rem; margin-left: auto; }
         .radar-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         .radar-footer { margin-top: 2rem; display: flex; flex-direction: column; gap: 0.5rem; }
         .pulse-anim { animation: pulse 2s infinite; }

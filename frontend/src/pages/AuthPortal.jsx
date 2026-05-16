@@ -194,7 +194,7 @@ const AuthPortal = () => {
           margin-bottom: 2.5rem;
           padding: 6px;
           background: rgba(0, 0, 0, 0.4);
-          border-radius: 12px;
+          border-radius: 6px;
         }
 
         .role-btn {
@@ -203,7 +203,7 @@ const AuthPortal = () => {
           align-items: center;
           justify-content: center;
           gap: 0.5rem;
-          border-radius: 8px;
+          border-radius: 3px;
           color: var(--text-muted);
           background: transparent;
         }

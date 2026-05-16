@@ -1,29 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useNavigate } from 'react-router-dom';
 import { LogOut, Activity, MapPin, ShieldCheck, AlertCircle, Smartphone } from 'lucide-react';
 
 const DonorDashboard = () => {
   const { user, logout } = useAuth();
   const socket = useSocket();
-  const [isAvailable, setIsAvailable] = useState(user?.isAvailable || false);
+  const navigate = useNavigate();
+  const [isAvailable, setIsAvailable] = useState(false);
   const [emergency, setEmergency] = useState(null);
-  const [stats, setStats] = useState(user?.metrics || { reliabilityScore: 100 });
+  const [stats, setStats] = useState({ reliabilityScore: 100, totalPingsReceived: 0, pingsResponded: 0 });
+  const [loading, setLoading] = useState(true);
+
+  // AUTH GUARD
+  useEffect(() => {
+    if (!user || user.role !== 'donor') {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  // Fetch live profile & metrics
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user?.token) return;
+      try {
+        const res = await fetch('/api/donor/profile', {
+          headers: { 'Authorization': `Bearer ${user.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data.metrics || { reliabilityScore: 100 });
+          setIsAvailable(data.isAvailable || false);
+        }
+      } catch (err) {
+        console.error('Profile fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, [user?.token]);
 
   useEffect(() => {
     if (!socket) return;
 
-    // Listen for Emergency Alerts
-    socket.on('emergency_override_alert', (data) => {
-      setEmergency(data);
-      // Play a custom sound or triggers vibration in real mobile apps
-    });
+    const handleEmergency = (data) => setEmergency(data);
+    const handleGridStatus = (data) => console.log('Grid Status:', data);
 
-    socket.on('grid_status', (data) => {
-      console.log('Grid Status:', data);
-    });
+    socket.on('emergency_override_alert', handleEmergency);
+    socket.on('grid_status', handleGridStatus);
 
-    return () => socket.off('emergency_override_alert');
+    return () => {
+      socket.off('emergency_override_alert', handleEmergency);
+      socket.off('grid_status', handleGridStatus);
+    };
   }, [socket]);
 
   const toggleStatus = async () => {
@@ -203,7 +234,7 @@ const DonorDashboard = () => {
         .log-title { font-size: 0.8rem; font-weight: 800; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 2rem; }
         .log-list { display: flex; flex-direction: column; gap: 1.5rem; }
         .log-item { border-left: 2px solid rgba(255,255,255,0.05); padding-left: 1rem; position: relative; }
-        .log-tag { font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 6px; }
+        .log-tag { font-size: 0.6rem; font-weight: 900; padding: 2px 6px; border-radius: 2px; display: inline-block; margin-bottom: 6px; }
         .log-tag.sms { background: #3b82f6; color: white; }
         .log-tag.call { background: var(--accent-red); color: white; }
         .log-tag.notif { background: #10b981; color: white; }
@@ -248,7 +279,7 @@ const DonorDashboard = () => {
            width: 64px;
            height: 32px;
            background: rgba(255, 255, 255, 0.1);
-           border-radius: 20px;
+           border-radius: 6px;
            padding: 4px;
            transition: all 0.3s ease;
         }
@@ -297,10 +328,10 @@ const DonorDashboard = () => {
         }
 
         .critical-text { font-weight: 900; font-size: 2rem; margin: 1.5rem 0; color: white; }
-        .emergency-specs { background: rgba(0,0,0,0.4); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; }
+        .emergency-specs { background: rgba(0,0,0,0.4); padding: 1.5rem; border-radius: 6px; margin-bottom: 2rem; }
         .highlight { color: #ffe4e6; font-weight: 800; }
 
-        .confirm-btn { background: white; color: var(--primary-red); width: 100%; padding: 16px; border-radius: 12px; font-weight: 800; margin-bottom: 1rem; }
+        .confirm-btn { background: white; color: var(--primary-red); width: 100%; padding: 16px; border-radius: 6px; font-weight: 800; margin-bottom: 1rem; }
         .reject-btn { color: white; opacity: 0.6; font-weight: 600; background: transparent; }
 
         @keyframes flashBackground {

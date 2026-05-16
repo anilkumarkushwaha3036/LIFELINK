@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const { initEngine, acceptEmergency } = require('./services/pulseEngine');
 
 const connectDB = require('./config/db');
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 // Load environment variables
 dotenv.config();
@@ -61,6 +62,10 @@ if (process.env.NODE_ENV === 'production') {
     res.send('PulseNet Backend System - Active (Dev Mode)');
   });
 }
+
+// Error Handling Middleware
+app.use(notFound);
+app.use(errorHandler);
 
 // Socket.io Connection Logic
 io.on('connection', (socket) => {
