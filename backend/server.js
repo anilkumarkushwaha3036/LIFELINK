@@ -5,6 +5,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { Server } = require('socket.io');
 const { initEngine, acceptEmergency } = require('./services/pulseEngine');
+const Request = require('./models/Request');
 
 const connectDB = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
@@ -21,8 +22,8 @@ const server = http.createServer(app);
 // Socket.io Setup
 const io = new Server(server, {
   cors: {
-    origin: '*', // We will restrict this in production
-    methods: ['GET', 'POST']
+    origin: '*', // Allows local dev and production access
+    methods: ['GET', 'POST', 'PUT']
   }
 });
 
@@ -33,10 +34,14 @@ initEngine(io);
 app.use(cors());
 app.use(express.json());
 
+// Pass IO instance to all route requests
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 // Make Uploads Folder Static
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
-
-// Note: Base route is handled below based on environment
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -59,7 +64,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 } else {
   app.get('/', (req, res) => {
-    res.send('PulseNet Backend System - Active (Dev Mode)');
+    res.send('LifeLink PulseNet Backend System - Active (Dev Mode)');
   });
 }
 
@@ -73,25 +78,53 @@ io.on('connection', (socket) => {
 
   // When a verified user comes online
   socket.on('join_grid', (userId) => {
-    socket.join(`user_${userId}`);
-    console.log(`[Donor Joined Grid] UserID: ${userId}`);
-    socket.emit('grid_status', { status: 'online', userId });
+    if (userId) {
+      socket.join(`user_${userId}`);
+      console.log(`[Donor Joined Grid] UserID: ${userId}`);
+      socket.emit('grid_status', { status: 'online', userId });
+    }
   });
 
   // When a Hospital logs in to their Command Center
   socket.on('hospital_join', (hospitalId) => {
-    socket.join(`hospital_${hospitalId}`);
-    console.log(`[Hospital Command Center Active] ID: ${hospitalId}`);
+    if (hospitalId) {
+      socket.join(`hospital_${hospitalId}`);
+      console.log(`[Hospital Command Center Active] ID: ${hospitalId}`);
+    }
+  });
+
+  // When Super Admin accesses Command Center
+  socket.on('admin_join', () => {
+    socket.join('admin_grid');
+    console.log('[Admin Joined Real-Time Grid Telemetry Channel]');
   });
 
   // When a donor receives an alert and hits "ACCEPT"
   socket.on('accept_emergency', async (data) => {
     const { requestId, donorId, timeTaken } = data;
     const success = await acceptEmergency(requestId, donorId, timeTaken);
-    if(success) {
+    if (success) {
       socket.emit('emergency_accepted_success', { message: 'Thanks for saving a life!' });
     } else {
-      socket.emit('emergency_accepted_failed', { message: 'Request already fulfilled by someone else.' });
+      socket.emit('emergency_accepted_failed', { message: 'Request already fulfilled or expired.' });
+    }
+  });
+
+  // When Hospital confirms fulfillment / arrival of donor
+  socket.on('confirm_match', async (data) => {
+    try {
+      const { requestId } = data;
+      if (requestId) {
+        await Request.findByIdAndUpdate(requestId, { status: 'Fulfilled' });
+        console.log(`[Request Fulfilled] ID: ${requestId}`);
+        io.to('admin_grid').emit('grid_activity', {
+          type: 'EMERGENCY_FULFILLED',
+          requestId,
+          timestamp: new Date()
+        });
+      }
+    } catch (err) {
+      console.error('[Socket confirm_match Error]', err.message);
     }
   });
 
@@ -104,5 +137,7 @@ io.on('connection', (socket) => {
 // Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`[Initialization] PulseNet System running on PORT ${PORT}`);
+  console.log(`[Initialization] LifeLink PulseNet System running on PORT ${PORT}`);
 });
+
+module.exports = { app, server, io };

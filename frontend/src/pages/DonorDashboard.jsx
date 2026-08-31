@@ -47,15 +47,32 @@ const DonorDashboard = () => {
 
     const handleEmergency = (data) => setEmergency(data);
     const handleGridStatus = (data) => console.log('Grid Status:', data);
+    const handleStatusUpdate = (data) => {
+      console.log('Status updated:', data);
+      // Re-fetch profile to refresh verification status and metrics
+      if (user?.token) {
+        fetch('/api/donor/profile', {
+          headers: { 'Authorization': `Bearer ${user.token}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data?.metrics) setStats(data.metrics);
+            if (data?.isAvailable !== undefined) setIsAvailable(data.isAvailable);
+          })
+          .catch(console.error);
+      }
+    };
 
     socket.on('emergency_override_alert', handleEmergency);
     socket.on('grid_status', handleGridStatus);
+    socket.on('donor_status_updated', handleStatusUpdate);
 
     return () => {
       socket.off('emergency_override_alert', handleEmergency);
       socket.off('grid_status', handleGridStatus);
+      socket.off('donor_status_updated', handleStatusUpdate);
     };
-  }, [socket]);
+  }, [socket, user?.token]);
 
   const toggleStatus = async () => {
     try {
@@ -344,6 +361,47 @@ const DonorDashboard = () => {
            100% { transform: scale(1.1); }
         }
         .pulse-icon { animation: pulse-icon 0.3s infinite alternate; }
+
+        @media (max-width: 860px) {
+          .dashboard-main-layout {
+            grid-template-columns: 1fr;
+          }
+          .telephony-log {
+            width: 100%;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .donor-dashboard {
+            padding: 1rem;
+          }
+          .dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 2rem;
+          }
+          .dashboard-header .btn-secondary {
+            width: 100%;
+          }
+          .status-card {
+            padding: 2rem 1rem;
+          }
+          .metric-card {
+            padding: 1.25rem 1rem;
+            gap: 1rem;
+          }
+          .metric-value {
+            font-size: 1.8rem;
+          }
+          .critical-modal {
+            padding: 1.5rem;
+            max-width: 95vw;
+          }
+          .critical-text {
+            font-size: 1.5rem;
+          }
+        }
       `}</style>
     </div>
   );

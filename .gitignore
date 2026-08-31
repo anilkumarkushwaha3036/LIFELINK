@@ -1,29 +1,48 @@
-# Node Modules
+# ==============================================================================
+# LIFELINK — Git Ignore Configuration
+# ==============================================================================
+
+# Node Modules & Dependencies
 node_modules/
 **/node_modules/
-
-# Environment Variables
-.env
-backend/.env
-frontend/.env
-*.env.local
-
-# Build Artifacts
-dist/
-build/
-.vite/
-
-# System Files
-.DS_Store
-Thumbs.db
-
-# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# Uploads
-backend/uploads/
+# Environment & Secret Credentials
+.env
+.env.*
+*.env
+*.env.local
+backend/.env
+frontend/.env
+!*.env.example
 
-# Database (optional, if using local DB)
+# Build Artifacts & Static Dist
+dist/
+**/dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Uploaded Files & Temporary Storage
+backend/uploads/*
+!backend/uploads/.gitkeep
+temp/
+tmp/
+
+# OS & Editor Specific Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Database storage (if local mongo data)
 data/
+*.sqlite

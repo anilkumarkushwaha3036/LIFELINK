@@ -10,7 +10,7 @@ const getPendingDonors = async (req, res) => {
     const donors = await User.find({
       role: 'donor',
       verificationStatus: { $in: ['Unverified', 'Pending Document'] }
-    }).select('-password');
+    }).select('-password').sort({ createdAt: -1 });
     
     res.json(donors);
   } catch (error) {
@@ -28,7 +28,16 @@ const verifyDonor = async (req, res) => {
     if (donor && donor.role === 'donor') {
       donor.verificationStatus = 'Verified';
       await donor.save();
-      res.json({ message: 'Donor successfully verified.' });
+
+      // Real-time socket notification to the donor
+      if (req.io) {
+        req.io.to(`user_${donor._id}`).emit('donor_status_updated', {
+          verificationStatus: 'Verified',
+          message: 'Your LifeLink donor node has been verified! You can now toggle Online.'
+        });
+      }
+
+      res.json({ message: 'Donor successfully verified and node activated.', donor });
     } else {
       res.status(404).json({ message: 'Donor not found' });
     }
@@ -44,16 +53,22 @@ const createEmergencyRequest = async (req, res) => {
   try {
     const { bloodGroupRequired, urgency, timeConstraintMinutes, currentRadiusKm } = req.body;
 
+    if (!bloodGroupRequired) {
+      return res.status(400).json({ message: 'Blood group requirement is mandatory' });
+    }
+
     const request = new Request({
       hospitalId: req.user._id,
       bloodGroupRequired,
-      urgency,
-      timeConstraintMinutes: timeConstraintMinutes || 2,
-      currentRadiusKm: currentRadiusKm || 3,
+      urgency: urgency || 'High',
+      timeConstraintMinutes: Number(timeConstraintMinutes) || 2,
+      currentRadiusKm: Number(currentRadiusKm) || 3,
       notifiedDonors: [],
     });
 
     const createdRequest = await request.save();
+    
+    // Launch the PulseEngine cascade
     launchEmergencyCascade(createdRequest._id);
     
     res.status(201).json(createdRequest);
@@ -68,7 +83,12 @@ const createEmergencyRequest = async (req, res) => {
 const getHospitalStats = async (req, res) => {
   try {
     const hospital = req.user;
-    if (!hospital.location) return res.json({ totalDonorsNearby: 0 });
+    if (!hospital?.location?.coordinates || hospital.location.coordinates.length < 2) {
+      const recentRequests = await Request.find({ hospitalId: hospital._id })
+        .sort({ createdAt: -1 })
+        .limit(5);
+      return res.json({ totalDonorsNearby: 0, recentRequests, gridStatus: 'Active' });
+    }
 
     const totalDonorsNearby = await User.countDocuments({
       role: 'donor',

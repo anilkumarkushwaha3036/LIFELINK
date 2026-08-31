@@ -1,49 +1,53 @@
-# ---- Stage 1: Frontend Build ----
-FROM node:18-alpine AS frontend-builder
+# Multi-Stage Production Dockerfile
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# Copy frontend package files first (layer caching optimization)
+ENV NODE_ENV=development
+
+# Copy frontend package definitions
 COPY frontend/package*.json ./
 
-# Install all frontend dependencies (including dev deps needed for Vite build)
+# Install all frontend build dependencies
 RUN npm install
 
-# Copy all frontend source files
+# Copy frontend source code
 COPY frontend/ ./
 
-# Build the Vite application for production
-# VITE_API_URL is not needed — the frontend is served from the same Express origin
+# Compile React Vite frontend into /app/frontend/dist static bundle
 RUN npm run build
 
 
-# ---- Stage 2: Backend & Production Environment ----
-FROM node:18-alpine
+# ---- Stage 2: Backend & Production Unified Runtime ----
+FROM node:20-alpine
 
-# Set working directory
 WORKDIR /app/backend
 
-# Copy backend package files
+# Copy backend package definitions
 COPY backend/package*.json ./
 
-# Install ONLY production dependencies (keeps image lean)
+# Clean install all production dependencies in Node 20 environment
 RUN npm install --omit=dev
 
-# Copy all backend source files (including new middleware/errorMiddleware.js)
+# Copy backend application source code and environment config
 COPY backend/ ./
 
-# Copy the compiled frontend bundle from Stage 1 into the
-# location expected by server.js: path.join(__dirname, '../frontend/dist')
+# Copy compiled frontend assets from Stage 1 into the location expected by Express server
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-# Create uploads directory (for donor verification documents)
+# Ensure the uploads directory exists for donor document verification
 RUN mkdir -p /app/backend/uploads
 
-# Expose the application port
+# Build-time verification: Asserts Express and core libraries resolve properly
+RUN node -e "require('express'); require('mongoose'); require('socket.io'); require('dotenv'); console.log('✅ Backend modules verified successfully!');"
+
+# Production environment defaults
+ENV PORT=5000 \
+    NODE_ENV=production \
+    CLIENT_URL=http://localhost:5000
+
+# Expose server port
 EXPOSE 5000
 
-# Set NODE_ENV so server.js serves the frontend static bundle
-ENV NODE_ENV=production
-
-# Start the unified Express server
+# Start the unified full-stack application
 CMD ["node", "server.js"]

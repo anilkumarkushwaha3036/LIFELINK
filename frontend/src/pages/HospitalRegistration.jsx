@@ -184,6 +184,27 @@ const HospitalRegistration = () => {
         @media (max-width: 900px) {
            .form-row { grid-template-columns: 1fr; }
         }
+
+        @media (max-width: 640px) {
+           .registration-page {
+             padding: 1rem;
+             flex-direction: column;
+             justify-content: flex-start;
+             padding-top: 2rem;
+           }
+           .back-btn {
+             position: static;
+             margin-bottom: 1.5rem;
+             align-self: flex-start;
+           }
+           .registration-container {
+             padding: 2.25rem 1.25rem;
+             max-width: 100%;
+           }
+           .form-header h3 {
+             font-size: 1.3rem;
+           }
+        }
       `}</style>
     </div>
   );

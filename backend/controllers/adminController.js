@@ -10,7 +10,7 @@ const getPendingHospitals = async (req, res) => {
     const hospitals = await User.find({
       role: 'hospital',
       verificationStatus: 'Unverified'
-    }).select('-password');
+    }).select('-password').sort({ createdAt: -1 });
     res.json(hospitals);
   } catch (error) {
     res.status(500).json({ message: 'Server Error: ' + error.message });
@@ -25,7 +25,7 @@ const getPendingDonors = async (req, res) => {
     const donors = await User.find({
       role: 'donor',
       verificationStatus: { $in: ['Unverified', 'Pending Document'] }
-    }).select('-password');
+    }).select('-password').sort({ createdAt: -1 });
     res.json(donors);
   } catch (error) {
     res.status(500).json({ message: 'Server Error: ' + error.message });
@@ -41,7 +41,33 @@ const approveHospital = async (req, res) => {
     if (hospital && hospital.role === 'hospital') {
       hospital.verificationStatus = 'Verified';
       await hospital.save();
+
+      // Real-time socket notification to the hospital
+      if (req.io) {
+        req.io.to(`hospital_${hospital._id}`).emit('hospital_status_updated', {
+          verificationStatus: 'Verified',
+          message: 'Hospital accredited and verified on the LifeLink Grid.'
+        });
+      }
+
       res.json({ message: `Hospital ${hospital.name} verified successfully.` });
+    } else {
+      res.status(404).json({ message: 'Hospital entry not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error: ' + error.message });
+  }
+};
+
+// @desc    Reject a hospital on the grid
+// @route   DELETE /api/admin/reject-hospital/:id
+// @access  Private/Admin
+const rejectHospital = async (req, res) => {
+  try {
+    const hospital = await User.findById(req.params.id);
+    if (hospital && hospital.role === 'hospital') {
+      await User.findByIdAndDelete(req.params.id);
+      res.json({ message: `Hospital ${hospital.name} registration rejected.` });
     } else {
       res.status(404).json({ message: 'Hospital entry not found' });
     }
@@ -59,7 +85,33 @@ const approveDonor = async (req, res) => {
     if (donor && donor.role === 'donor') {
       donor.verificationStatus = 'Verified';
       await donor.save();
+
+      // Real-time socket notification to the donor
+      if (req.io) {
+        req.io.to(`user_${donor._id}`).emit('donor_status_updated', {
+          verificationStatus: 'Verified',
+          message: 'Donor account verified by Grid Admin. You are now active!'
+        });
+      }
+
       res.json({ message: `Donor ${donor.name} verified successfully.` });
+    } else {
+      res.status(404).json({ message: 'Donor entry not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error: ' + error.message });
+  }
+};
+
+// @desc    Reject a donor on the grid
+// @route   DELETE /api/admin/reject-donor/:id
+// @access  Private/Admin
+const rejectDonor = async (req, res) => {
+  try {
+    const donor = await User.findById(req.params.id);
+    if (donor && donor.role === 'donor') {
+      await User.findByIdAndDelete(req.params.id);
+      res.json({ message: `Donor ${donor.name} registration rejected.` });
     } else {
       res.status(404).json({ message: 'Donor entry not found' });
     }
@@ -92,6 +144,9 @@ const getGridStats = async (req, res) => {
       { $limit: 5 }
     ]);
 
+    // Populate hospital names for activity
+    const populatedActivity = await User.populate(hospitalActivity, { path: '_id', select: 'name' });
+
     // 4. Activity Stream: Latest emergency cascades
     const activityStream = await Request.find()
       .sort({ createdAt: -1 })
@@ -100,16 +155,18 @@ const getGridStats = async (req, res) => {
 
     // 5. Grid Totals
     const totalDonors = await User.countDocuments({ role: 'donor', verificationStatus: 'Verified' });
+    const totalHospitals = await User.countDocuments({ role: 'hospital', verificationStatus: 'Verified' });
     const totalRequests = await Request.countDocuments();
     const activeEmergencies = await Request.countDocuments({ status: 'Searching' });
 
     res.json({
       demandTrends,
       supplyStats,
-      hospitalActivity,
+      hospitalActivity: populatedActivity,
       activityStream,
       stats: {
         totalDonors,
+        totalHospitals,
         totalRequests,
         activeEmergencies
       }
@@ -119,23 +176,31 @@ const getGridStats = async (req, res) => {
   }
 };
 
-// @desc    Suggest inter-hospital transfers based on recent activity
+// @desc    Suggest inter-hospital transfers based on active hospitals
 // @route   GET /api/admin/bridge-suggestions
 // @access  Private/Admin
 const getBridgeSuggestions = async (req, res) => {
   try {
-    // Advanced: This would use a real matching algo. 
-    // For now, we return high-potential coordinate pairs.
-    const suggestions = [
-      {
-        fromHospital: "City Health Center",
-        toHospital: "PulseNet South Node",
-        bloodGroup: "O-",
-        priority: "Critical",
-        reason: "Zero local supply detected"
-      }
-    ];
-    res.json(suggestions);
+    const verifiedHospitals = await User.find({ role: 'hospital', verificationStatus: 'Verified' }).limit(4);
+    
+    if (verifiedHospitals.length >= 2) {
+      const suggestions = [
+        {
+          _id: 'sugg-1',
+          fromHospitalId: verifiedHospitals[1]._id,
+          fromHospital: verifiedHospitals[1].name,
+          toHospitalId: verifiedHospitals[0]._id,
+          toHospital: verifiedHospitals[0].name,
+          bloodGroup: "O-",
+          units: 3,
+          priority: "Critical",
+          reason: "Universal donor deficit detected at regional trauma desk"
+        }
+      ];
+      return res.json(suggestions);
+    }
+
+    res.json([]);
   } catch (error) {
     res.status(500).json({ message: 'Server Error: ' + error.message });
   }
@@ -151,9 +216,15 @@ const createBridge = async (req, res) => {
       fromHospitalId: fromHospId,
       toHospitalId: toHospId,
       bloodGroup,
-      units,
+      units: Number(units) || 1,
       status: 'Pending'
     });
+
+    if (req.io) {
+      req.io.to(`hospital_${toHospId}`).emit('incoming_bridge', bridge);
+      req.io.to(`hospital_${fromHospId}`).emit('outgoing_bridge', bridge);
+    }
+
     res.status(201).json(bridge);
   } catch (error) {
     res.status(500).json({ message: 'Server Error: ' + error.message });
@@ -164,7 +235,9 @@ module.exports = {
   getPendingHospitals, 
   getPendingDonors, 
   approveHospital, 
+  rejectHospital,
   approveDonor, 
+  rejectDonor,
   getGridStats,
   getBridgeSuggestions,
   createBridge

@@ -9,8 +9,8 @@ export const SocketProvider = ({ children }) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Automatically use the correct URL based on environment (development vs production deployment)
-    const socketUrl = import.meta.env.MODE === 'production' ? window.location.origin : 'http://localhost:5000';
+    // Automatically use the configured URL or fall back to environment defaults
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || (import.meta.env.MODE === 'production' ? window.location.origin : 'http://localhost:5000');
     const newSocket = io(socketUrl);
     setSocket(newSocket);
 
@@ -23,6 +23,8 @@ export const SocketProvider = ({ children }) => {
         socket.emit('join_grid', user._id);
       } else if (user.role === 'hospital') {
         socket.emit('hospital_join', user._id);
+      } else if (user.role === 'admin') {
+        socket.emit('admin_join');
       }
     }
   }, [socket, user]);

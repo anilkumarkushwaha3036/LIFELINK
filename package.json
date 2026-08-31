@@ -4,11 +4,17 @@
   "description": "LIFELINK — Emergency Blood Response Grid (Full Stack MERN)",
   "private": true,
   "scripts": {
-    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev-backend\" \"npm run dev-frontend\"",
     "dev-backend": "cd backend && npm run dev",
     "dev-frontend": "cd frontend && npm run dev",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "build": "cd frontend && npm run build",
-    "start": "cd backend && npm start"
+    "start": "cd backend && npm start",
+    "docker:build": "docker build -t lifelink:latest .",
+    "docker:run": "docker run -d -p 5000:5000 --name lifelink-app lifelink:latest"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   },
   "keywords": [
     "mern",
@@ -16,7 +22,9 @@
     "blood-donation",
     "real-time",
     "socket.io",
-    "geospatial"
+    "geospatial",
+    "docker",
+    "aws"
   ],
   "author": "",
   "license": "ISC"

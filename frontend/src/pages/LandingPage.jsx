@@ -21,10 +21,10 @@ import {
 const LandingPage = () => {
   const navigate = useNavigate();
   const [loadingLocation, setLoadingLocation] = useState(false);
-  const [verificationMethod, setVerificationMethod] = useState('Offline');
+  const [verificationMethod, setVerificationMethod] = useState(''); // No preselected pathway
   const [formData, setFormData] = useState({
     name: '', email: '', password: '', phone: '',
-    bloodGroup: 'A+', 
+    bloodGroup: '', // No preselected blood group
     latitude: null, longitude: null,
     file: null
   });
@@ -52,6 +52,14 @@ const LandingPage = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (!formData.bloodGroup) {
+      alert('Please select your blood group.');
+      return;
+    }
+    if (!verificationMethod) {
+      alert('Please select a verification pathway (Upload Report or Offline Test).');
+      return;
+    }
     if (!formData.latitude || !formData.longitude) {
       alert('Please synchronize your location first.');
       return;
@@ -188,7 +196,9 @@ const LandingPage = () => {
                     <select 
                       value={formData.bloodGroup}
                       onChange={(e) => setFormData({...formData, bloodGroup: e.target.value})}
+                      required
                     >
+                      <option value="" disabled>Select Blood Group</option>
                       {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
                         <option key={bg} value={bg}>{bg}</option>
                       ))}
@@ -288,9 +298,11 @@ const LandingPage = () => {
         .landing-page { padding: 1rem 2rem 5rem; max-width: 1400px; margin: 0 auto; }
         .glass-nav { 
           display: flex; justify-content: space-between; align-items: center; 
-          padding: 1rem 2rem; background: rgba(24, 25, 28, 0.4); 
-          backdrop-filter: blur(10px); border: 1px solid var(--border-light); 
-          border-radius: 6px; position: sticky; top: 1rem; z-index: 100; 
+          padding: 1.1rem 2.2rem; background: rgba(30, 31, 36, 0.7); 
+          backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); 
+          border: 1px solid rgba(255, 255, 255, 0.14); 
+          border-radius: 14px; position: sticky; top: 1rem; z-index: 100; 
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
         .logo { font-size: 1.5rem; font-weight: 800; }
 
@@ -388,7 +400,23 @@ const LandingPage = () => {
 
         @media (max-width: 900px) {
            .explanation-grid { grid-template-columns: 1fr; }
-           .form-row { grid-template-columns: 1fr; }
+           .process-grid { grid-template-columns: 1fr; gap: 1.25rem; }
+           .form-row { grid-template-columns: 1fr; gap: 1rem; }
+           .registration-container { padding: 3rem 2rem; }
+        }
+
+        @media (max-width: 640px) {
+           .landing-page { padding: 0.75rem 1rem 3rem; }
+           .glass-nav { padding: 0.75rem 1rem; }
+           .logo { font-size: 1.25rem; }
+           .hero-section { padding: 4.5rem 0 2.5rem; }
+           .hero-title { font-size: 2.2rem; }
+           .hero-subtitle { font-size: 1rem; margin-bottom: 2rem; }
+           .btn-large { padding: 14px 28px; font-size: 0.95rem; width: 100%; }
+           .section-head h2 { font-size: 1.8rem; }
+           .registration-container { padding: 2rem 1.25rem; }
+           .choice-grid { grid-template-columns: 1fr; }
+           .role-selector-tabs { flex-wrap: wrap; }
         }
       `}</style>
     

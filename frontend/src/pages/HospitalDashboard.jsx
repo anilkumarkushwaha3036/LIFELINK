@@ -81,8 +81,10 @@ const HospitalDashboard = () => {
       });
       
       socket.on('match_found', (data) => {
-        showToast(`🩸 CRITICAL MATCH: ${data.name} is responding to the emergency!`, 'critical');
-        socket.emit('confirm_match', { requestId: activeRequest?._id });
+        showToast(`🩸 CRITICAL MATCH: ${data.name} (${data.bloodGroup || ''}) is responding to the emergency!`, 'critical');
+        setActiveRequest(prev => ({ ...prev, status: 'Matched', matchedDonor: data }));
+        fetchData();
+        socket.emit('confirm_match', { requestId: data.requestId || activeRequest?._id });
       });
     }
     return () => socket && socket.off('pulse_update');

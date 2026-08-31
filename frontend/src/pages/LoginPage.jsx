@@ -175,6 +175,35 @@ const LoginPage = () => {
         .form-group label { font-size: 0.75rem; font-weight: 800; color: var(--text-muted); }
 
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 640px) {
+          .login-page {
+            padding: 1rem;
+            flex-direction: column;
+            justify-content: flex-start;
+            padding-top: 2rem;
+          }
+          .back-btn {
+            position: static;
+            margin-bottom: 1.5rem;
+            align-self: flex-start;
+          }
+          .login-container {
+            padding: 2.25rem 1.25rem;
+            max-width: 100%;
+          }
+          .login-header {
+            margin-bottom: 2rem;
+          }
+          .role-switcher {
+            gap: 0.35rem;
+            margin-bottom: 2rem;
+          }
+          .role-btn {
+            padding: 8px 4px;
+            font-size: 0.65rem;
+          }
+        }
       `}</style>
     </div>
   );

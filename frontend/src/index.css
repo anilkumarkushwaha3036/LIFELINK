@@ -30,6 +30,7 @@
 }
 
 body {
+  overflow-x: clip;
   background-color: var(--bg-dark);
   color: var(--text-main);
   font-family: var(--font-sans);
@@ -55,6 +56,11 @@ body {
   display: none;
 }
 
+img, svg, video {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Glassmorphism Utilities */
 .glass-panel {
   background: var(--bg-card);
@@ -74,6 +80,7 @@ input, select {
   font-family: var(--font-sans);
   outline: none;
   transition: all 0.2s ease;
+  width: 100%;
 }
 
 select {
@@ -97,6 +104,7 @@ button {
   font-family: var(--font-sans);
   font-weight: 600;
   transition: all 0.3s ease;
+  touch-action: manipulation;
 }
 
 /* Stunning Red Button */

@@ -275,3 +275,131 @@
   from { opacity: 0; transform: translateX(40px); }
   to   { opacity: 1; transform: translateX(0); }
 }
+
+/* Responsive Breakpoints */
+
+@media (max-width: 1024px) {
+  .hospital-eoc {
+    grid-template-columns: 220px 1fr;
+  }
+  
+  .eoc-main-content {
+    padding: 2rem 1.5rem;
+  }
+  
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+
+  .header-meta h1 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .hospital-eoc {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .eoc-sidebar {
+    position: relative;
+    height: auto;
+    width: 100%;
+    padding: 1.25rem 1rem;
+    gap: 1rem;
+    border-right: none;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .eoc-logo {
+    justify-content: space-between;
+  }
+
+  .nav-links {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .nav-item {
+    padding: 0.6rem 0.5rem;
+    font-size: 0.75rem;
+    justify-content: center;
+    gap: 0.4rem;
+    text-align: center;
+  }
+
+  .eoc-main-content {
+    padding: 1.5rem 1rem;
+    width: 100%;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .header-meta h1 {
+    font-size: 1.6rem;
+  }
+
+  .bento-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .bento-card[style*="span 2"] {
+    grid-column: span 1 !important;
+  }
+
+  .bento-card {
+    padding: 1.25rem;
+  }
+
+  .big-number {
+    font-size: 2.2rem;
+  }
+
+  .v-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .v-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .eoc-toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-links {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-item {
+    justify-content: flex-start;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .header-meta h1 {
+    font-size: 1.4rem;
+  }
+
+  .big-number {
+    font-size: 1.8rem;
+  }
+}

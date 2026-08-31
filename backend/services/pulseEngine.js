@@ -4,10 +4,43 @@ const { sendEmergencySMS } = require('./twilioService');
 
 let _io;
 
+// Clinical Blood Compatibility Matrix (Donor -> Recipient)
+const BLOOD_COMPATIBILITY = {
+  'A+':  ['A+', 'A-', 'O+', 'O-'],
+  'A-':  ['A-', 'O-'],
+  'B+':  ['B+', 'B-', 'O+', 'O-'],
+  'B-':  ['B-', 'O-'],
+  'AB+': ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+  'AB-': ['AB-', 'A-', 'B-', 'O-'],
+  'O+':  ['O+', 'O-'],
+  'O-':  ['O-']
+};
+
 // Inject the io instance from server.js
 const initEngine = (io) => {
   _io = io;
   console.log('[PulseEngine] Initialized logic engine active.');
+
+  // Periodic Reconciliation Sweeper: Auto-recovers any pending requests if server was restarted
+  setInterval(reconcilePendingRequests, 30000);
+};
+
+// Sweeper function to verify any stuck requests
+const reconcilePendingRequests = async () => {
+  try {
+    const expiredRequests = await Request.find({ status: 'Searching' });
+    const now = Date.now();
+    for (const req of expiredRequests) {
+      const elapsedMs = now - new Date(req.updatedAt).getTime();
+      const maxWaitMs = (req.timeConstraintMinutes || 2) * 60 * 1000;
+      if (elapsedMs >= maxWaitMs) {
+        console.log(`[PulseEngine Sweeper] Auto-reconciling Request ${req._id}`);
+        handleEscalation(req);
+      }
+    }
+  } catch (err) {
+    console.error('[PulseEngine Sweeper Error]', err.message);
+  }
 };
 
 // Start the search and countdown cascade
@@ -22,20 +55,40 @@ const launchEmergencyCascade = async (requestId) => {
     console.log(`[PulseEngine] Level ${escalationLevel} Escalation for ${bloodGroupRequired} at ${currentRadiusKm}km`);
 
     // Notify Hospital Dashboard of the new escalation phase
-    _io.to(`hospital_${hId}`).emit('pulse_update', { 
-      status: 'Searching',
-      radius: currentRadiusKm, 
-      level: escalationLevel,
-      expiryTime: Date.now() + (timeConstraintMinutes * 60 * 1000)
-    });
+    if (_io) {
+      _io.to(`hospital_${hId}`).emit('pulse_update', { 
+        status: 'Searching',
+        radius: currentRadiusKm, 
+        level: escalationLevel,
+        expiryTime: Date.now() + (timeConstraintMinutes * 60 * 1000)
+      });
 
-    // The Hospital coordinates
-    const hospitalCoords = hospitalId.location.coordinates;
+      // Notify Super Admin Grid Channel of active emergency
+      _io.to('admin_grid').emit('grid_activity', {
+        type: 'EMERGENCY_BROADCAST',
+        requestId: request._id,
+        hospitalName: hospitalId.name || 'Hospital Node',
+        bloodGroup: bloodGroupRequired,
+        radius: currentRadiusKm,
+        level: escalationLevel,
+        timestamp: new Date()
+      });
+    }
+
+    // Safely retrieve hospital coordinates
+    const hospitalCoords = hospitalId?.location?.coordinates;
+    if (!hospitalCoords || hospitalCoords.length < 2) {
+      console.error(`[PulseEngine Error] Hospital ${hId} does not have valid GPS coordinates.`);
+      return;
+    }
+
+    // Determine compatible donor blood groups
+    const compatibleBloodGroups = BLOOD_COMPATIBILITY[bloodGroupRequired] || [bloodGroupRequired];
 
     // Filter Step 1: Finding valid donors in radius based on current escalation
     const targetDonors = await User.find({
       role: 'donor',
-      bloodGroup: bloodGroupRequired,
+      bloodGroup: { $in: compatibleBloodGroups },
       verificationStatus: 'Verified',
       isAvailable: true,
       location: {
@@ -54,25 +107,28 @@ const launchEmergencyCascade = async (requestId) => {
       .limit(escalationLevel === 1 ? 10 : 30);  // Level 1 = 10, Level 2+ = 30
 
     if (targetDonors.length === 0) {
-      console.log(`[PulseEngine] No donors found in ${currentRadiusKm}km radius.`);
+      console.log(`[PulseEngine] No compatible donors found in ${currentRadiusKm}km radius.`);
       handleEscalation(request);
       return;
     }
 
-    console.log(`[PulseEngine] Pinging ${targetDonors.length} donors...`);
+    console.log(`[PulseEngine] Pinging ${targetDonors.length} compatible donors (${compatibleBloodGroups.join(', ')})...`);
 
     // Add them to the request model
     targetDonors.forEach((donor) => {
       request.notifiedDonors.push({ donorId: donor._id, status: 'Pending' });
       
       // FIRE THE SOCKET PING
-      _io.to(`user_${donor._id}`).emit('emergency_override_alert', {
-        requestId: request._id,
-        bloodGroup: bloodGroupRequired,
-        distanceStr: `${currentRadiusKm}km`,
-        timeConstraintMinutes,
-        escalationLevel
-      });
+      if (_io) {
+        _io.to(`user_${donor._id}`).emit('emergency_override_alert', {
+          requestId: request._id,
+          bloodGroup: bloodGroupRequired,
+          donorBloodGroup: donor.bloodGroup,
+          distanceStr: `${currentRadiusKm}km`,
+          timeConstraintMinutes,
+          escalationLevel
+        });
+      }
 
       // SEND TWILIO SMS PING
       if (donor.phone) {
@@ -83,13 +139,15 @@ const launchEmergencyCascade = async (requestId) => {
     await request.save();
 
     // Notify Hospital Dashboard that pings were sent with the donor count
-    _io.to(`hospital_${hId}`).emit('pulse_update', { 
-      notifiedCount: targetDonors.length,
-      radius: currentRadiusKm,
-      level: escalationLevel 
-    });
+    if (_io) {
+      _io.to(`hospital_${hId}`).emit('pulse_update', { 
+        notifiedCount: targetDonors.length,
+        radius: currentRadiusKm, 
+        level: escalationLevel 
+      });
+    }
 
-    // SET THE TIME BOMB (Escalation Timer)
+    // SET THE ESCALATION TIMER
     setTimeout(() => {
       verifyRequestStatus(requestId);
     }, timeConstraintMinutes * 60 * 1000);
@@ -101,66 +159,121 @@ const launchEmergencyCascade = async (requestId) => {
 
 // Check if anyone accepted. If not, explode (escalate)
 const verifyRequestStatus = async (requestId) => {
-  const request = await Request.findById(requestId);
-  if (request.status === 'Searching') {
-    handleEscalation(request);
+  try {
+    const request = await Request.findById(requestId);
+    if (request && request.status === 'Searching') {
+      handleEscalation(request);
+    }
+  } catch (err) {
+    console.error('[PulseEngine verifyRequestStatus Error]', err.message);
   }
 };
 
 const handleEscalation = async (request) => {
-  if (request.escalationLevel >= 3) {
-    request.status = 'Failed';
+  try {
+    if (request.escalationLevel >= 3) {
+      request.status = 'Failed';
+      await request.save();
+      console.log(`[PulseEngine] Request ${request._id} FAILED. Reached MAX Escalation.`);
+      const hId = request.hospitalId._id || request.hospitalId;
+      if (_io) {
+        _io.to(`hospital_${hId}`).emit('request_failed', { requestId: request._id });
+        _io.to('admin_grid').emit('grid_activity', {
+          type: 'EMERGENCY_FAILED',
+          requestId: request._id,
+          timestamp: new Date()
+        });
+      }
+      return;
+    }
+
+    // Escalate to next radius
+    request.escalationLevel += 1;
+    request.currentRadiusKm = request.currentRadiusKm === 3 ? 10 : 25; // 3km -> 10km -> 25km
     await request.save();
-    console.log(`[PulseEngine] Request ${request._id} FAILED. Reached MAX Escelation.`);
-    _io.to(`hospital_${request.hospitalId}`).emit('request_failed', { requestId: request._id });
-    return;
+
+    console.log(`[PulseEngine] AUTO-ESCALATED Request ${request._id} to Level ${request.escalationLevel} (${request.currentRadiusKm}km)`);
+    launchEmergencyCascade(request._id);
+  } catch (err) {
+    console.error('[PulseEngine handleEscalation Error]', err.message);
   }
-
-  // Escalate
-  request.escalationLevel += 1;
-  request.currentRadiusKm = request.currentRadiusKm === 3 ? 10 : 25; // 3km -> 10km -> 25km
-  await request.save();
-
-  console.log(`[PulseEngine] AUTO-ESCALATED Request ${request._id} to Level ${request.escalationLevel}`);
-  launchEmergencyCascade(request._id);
 };
 
-// Called when a donor hits "ACCEPT"
-const acceptEmergency = async (requestId, donorId, timeTaken) => {
-  const request = await Request.findById(requestId);
-  if (request.status !== 'Searching') return false; // Too late!
+// Called when a donor hits "ACCEPT" (Race-Condition Protected via Atomic Query)
+const acceptEmergency = async (requestId, donorId, timeTaken = 15) => {
+  try {
+    // Atomic update: only succeeds if request is STILL 'Searching'
+    const updatedRequest = await Request.findOneAndUpdate(
+      { _id: requestId, status: 'Searching' },
+      { 
+        $set: { 
+          status: 'Matched', 
+          matchedDonor: donorId,
+          'notifiedDonors.$[elem].status': 'Accepted',
+          'notifiedDonors.$[elem].timeTakenSeconds': timeTaken
+        } 
+      },
+      { 
+        arrayFilters: [{ 'elem.donorId': donorId }],
+        new: true 
+      }
+    );
 
-  // Update Request
-  request.status = 'Matched';
-  request.matchedDonor = donorId;
-  
-  const donorRecord = request.notifiedDonors.find(d => d.donorId.toString() === donorId.toString());
-  if(donorRecord) {
-    donorRecord.status = 'Accepted';
-    donorRecord.timeTakenSeconds = timeTaken;
+    if (!updatedRequest) {
+      console.log(`[PulseEngine] Request ${requestId} already matched or no longer active.`);
+      return false; // Another donor already claimed it!
+    }
+
+    // Update Donor Metrics & Status
+    const donorUser = await User.findById(donorId);
+    if (donorUser) {
+      donorUser.metrics.pingsResponded = (donorUser.metrics.pingsResponded || 0) + 1;
+      donorUser.metrics.requestsAccepted = (donorUser.metrics.requestsAccepted || 0) + 1;
+      const currentAvg = donorUser.metrics.avgResponseTimeSeconds || timeTaken;
+      donorUser.metrics.avgResponseTimeSeconds = Math.round((currentAvg + timeTaken) / 2);
+      
+      // Calculate dynamic reliability score (0 - 100)
+      const ratio = (donorUser.metrics.requestsAccepted / (donorUser.metrics.totalPingsReceived || 1));
+      donorUser.metrics.reliabilityScore = Math.min(100, Math.max(70, Math.round(ratio * 100)));
+      
+      // Auto toggle offline since donor is now on active rescue mission
+      donorUser.isAvailable = false;
+      await donorUser.save();
+
+      const hId = updatedRequest.hospitalId._id || updatedRequest.hospitalId;
+
+      // Notify Hospital Command Center instantly
+      if (_io) {
+        _io.to(`hospital_${hId}`).emit('match_found', { 
+          requestId: updatedRequest._id,
+          donorId: donorUser._id, 
+          name: donorUser.name, 
+          phone: donorUser.phone,
+          bloodGroup: donorUser.bloodGroup,
+          timeTaken 
+        });
+
+        // Notify Super Admin Channel
+        _io.to('admin_grid').emit('grid_activity', {
+          type: 'EMERGENCY_MATCHED',
+          requestId: updatedRequest._id,
+          donorName: donorUser.name,
+          bloodGroup: donorUser.bloodGroup,
+          timestamp: new Date()
+        });
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[PulseEngine acceptEmergency Error]', err.message);
+    return false;
   }
-
-  await request.save();
-
-  // Update Donor Score
-  const donorUser = await User.findById(donorId);
-  donorUser.metrics.pingsResponded += 1;
-  donorUser.metrics.requestsAccepted += 1;
-  donorUser.metrics.avgResponseTimeSeconds = 
-       (donorUser.metrics.avgResponseTimeSeconds + timeTaken) / 2; // Simple running average
-  
-  // They are no longer available since they are active
-  donorUser.isAvailable = false;
-  await donorUser.save();
-
-  // Notify Hospital!
-  _io.to(`hospital_${request.hospitalId}`).emit('match_found', { 
-    donorId: donorUser._id, 
-    name: donorUser.name, 
-    timeTaken 
-  });
-
-  return true;
 };
 
-module.exports = { initEngine, launchEmergencyCascade, acceptEmergency };
+module.exports = { 
+  initEngine, 
+  launchEmergencyCascade, 
+  acceptEmergency, 
+  BLOOD_COMPATIBILITY 
+};

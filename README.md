@@ -1,130 +1,121 @@
-#  LIFELINK — Emergency Blood Response Grid
+# 🩸 LIFELINK — Emergency Blood Response Grid
 
----
-Deploy link →  http://13.235.244.118/
----
+> **Transforming passive blood donor databases into an active, real-time emergency response network.**
 
-> **Turning passive donor lists into an active, real-time emergency network.**
-
-LIFELINK is a mission-critical platform that bridges the gap between emergency blood requirements and verified donors. Built on the **MERN stack**, it introduces the **PulseEngine Architecture** — a GPS-driven, role-based coordination grid that responds to blood emergencies in real time.
+LIFELINK is a mission-critical full-stack platform that coordinates urgent blood requirements with verified nearby donors in real-time. Powered by the **PulseEngine Architecture**, it provides GPS-driven proximity matching, automated radius escalations, clinical blood group compatibility mapping, and instant multi-channel alerts (SMS, Voice, WebSockets).
 
 ---
 
-##  The Core Problem
+## ⚡ Quick Start (Single Command Run)
 
-Traditional blood donation apps rely on static databases and slow manual outreach. When minutes matter, that's not good enough.
+Run both backend API (Node/Express) and frontend client (React/Vite) concurrently with a single command:
 
-LIFELINK solves this with:
-- **Real-time proximity matching** based on GPS coordinates and blood group compatibility
-- **Automatic radius escalation** — if no match is found, the search expands: 3km → 10km → 25km
-- **Verified nodes only** — every Hospital and Donor is vetted before joining the grid
+```bash
+# 1. Install all dependencies across root, backend, and frontend
+npm run install-all
 
----
+# 2. Run both Frontend & Backend concurrently
+npm run dev
+```
 
-##  Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React.js + Vite, Glassmorphism UI, Lenis Smooth Scroll |
-| Styling | Vanilla CSS with CSS Custom Properties (no Tailwind) |
-| Skeleton Screens | `react-loading-skeleton` with a custom dark theme |
-| Icons | `lucide-react` |
-| Backend | Node.js, Express.js with centralized error middleware |
-| Database | MongoDB Atlas with `2dsphere` geospatial indexing |
-| Real-Time | Socket.io (WebSocket-based emergency cascade) |
-| Auth | JWT + Role-Based Access Control (RBAC) |
-| File Uploads | `multer` (donor verification documents) |
-| DevOps | Docker (multi-stage build), AWS EC2 (single-container) |
+* 🌐 **Frontend (Vite UI):** `http://localhost:5173`
+* ⚙️ **Backend (REST & WebSockets):** `http://localhost:5000`
 
 ---
 
-##  The 3-Tier Grid System
+## 🌟 Key Features
 
-###  Super Admin — Grid Command
-- Monitor real-time blood demand trends and regional supply heatmaps
-- Approve/reject hospital nodes and review donor verification documents
-- Initiate inter-hospital blood bridge transfers between surplus and deficit nodes
-- Live activity stream of all emergency cascades across the grid
-
-###  Hospital EOC — Emergency Operations Center
-- Trigger high-priority emergency cascades for specific blood groups and urgency levels
-- View live verified-donor density within a 25km radar
-- Physically verify and activate donor nodes after an in-person blood test
-- Receive incoming bridge recommendations from the Admin coordination layer
-
-###  Donor Node — Grid Participant
-- Toggle availability ON/OFF in real time (only verified donors can go active)
-- Receive a full-screen emergency override alert for nearby blood-group matches
-- View live profile metrics (reliability score, pings received, missions accepted)
-- Accept or reject emergency requests via WebSocket
+* **🛡️ 3-Tier Grid Management:**
+  * **Super Admin Grid:** Monitor regional blood supply heatmaps, live emergency activity streams, verify/reject hospitals and donors, and trigger inter-hospital blood bridge transfers.
+  * **Hospital EOC (Emergency Operations Center):** Broadcast blood requests with urgency levels, view real-time 25km donor radar, and physically verify donors.
+  * **Donor Dashboard:** Real-time availability toggle, instant emergency override modal with audio-visual alerts, reliability metrics, and telephony logs.
+* **📍 PulseEngine Real-Time Proximity Match:**
+  * MongoDB Geospatial `2dsphere` queries (`$nearSphere`).
+  * Dynamic radius escalation: `3km → 10km → 25km` if no donors accept within timeout.
+  * **Concurrency Protection:** Atomic queries prevent duplicate claims across concurrent donor responses.
+  * **Clinical Compatibility:** Full clinical compatibility matrix (e.g. `O-` universal donor, `AB+` universal recipient).
+* **📱 Fully Responsive UI:**
+  * Adaptive design system for PC/Desktop, Tablets (768px - 1024px), and Mobile Phones (< 768px).
+  * High-performance dark glassmorphism aesthetic with zero horizontal scroll layout.
+* **📞 Telephony Integration (Twilio):**
+  * Automated SMS and VoIP notification alerts for emergency dispatches with seamless mock fallback.
 
 ---
 
-##  Architecture
+## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│          Single Docker Container             │
-│  ┌──────────────┐   ┌──────────────────────┐ │
-│  │  Express.js  │   │  Socket.io (WS)      │ │
-│  │  REST API    │──▶│  PulseEngine         │ │
-│  └──────┬───────┘   └──────────────────────┘ │
-│         │  Serves                            │
-│  ┌──────▼───────┐                            │
-│  │ React/Vite   │  (built into /dist)        │
-│  │  Frontend    │                            │
-│  └──────────────┘                            │
-└─────────────────────────────────────────────┘
-         │
-         ▼
-  MongoDB Atlas (external)
+┌─────────────────────────────────────────────────────────────┐
+│                    Single Docker Container                  │
+│  ┌───────────────────────┐       ┌──────────────────────┐   │
+│  │   Express.js API      │◄─────►│   PulseEngine (WS)   │   │
+│  │   (Node 20 Runtime)   │       │   (Socket.io Grid)   │   │
+│  └───────────┬───────────┘       └──────────────────────┘   │
+│              │ Serves                                       │
+│  ┌───────────▼───────────┐                                  │
+│  │   React + Vite SPA    │ (Compiled into /dist)            │
+│  │   Glassmorphic UI     │                                  │
+│  └───────────────────────┘                                  │
+└─────────────────────────────────────────────────────────────┘
+               │                                ▲
+               ▼                                │
+      MongoDB Geospatial              Twilio SMS & Calls
+      (2dsphere Indexing)             (Live Telephony)
 ```
 
 ---
 
-##  Project Structure
+## 📁 Project Structure
 
 ```
 LIFELINK/
-├── Dockerfile               # Multi-stage build (Vite → Express)
-├── .dockerignore
+├── Dockerfile               # Multi-stage production container (Node 20 LTS)
+├── .dockerignore            # Docker layer optimization
+├── .gitignore               # Excludes secrets (.env), node_modules, dist
+├── package.json             # Root monorepo script coordinator (concurrently)
+├── README.md                # Project documentation
+│
 ├── backend/
-│   ├── server.js            # Express + Socket.io entrypoint
-│   ├── config/db.js         # MongoDB connection
-│   ├── middleware/
-│   │   ├── authMiddleware.js    # JWT protect + role guards
-│   │   ├── errorMiddleware.js  # Global error handler (NEW)
-│   │   └── uploadMiddleware.js # Multer file uploads
-│   ├── models/
-│   │   ├── User.js          # Donor / Hospital / Admin schema
-│   │   ├── Request.js       # Emergency blood request schema
-│   │   └── BridgeRequest.js # Inter-hospital transfer schema
+│   ├── server.js            # Express + Socket.io entrypoint & static serving
+│   ├── config/
+│   │   └── db.js            # MongoDB connection
 │   ├── controllers/
-│   │   ├── authController.js
-│   │   ├── adminController.js
-│   │   ├── hospitalController.js
-│   │   └── donorController.js
+│   │   ├── adminController.js     # Verification & bridge operations
+│   │   ├── authController.js      # JWT login & registration
+│   │   ├── donorController.js     # Availability toggle & stats
+│   │   └── hospitalController.js  # Emergency broadcast triggers
+│   ├── middleware/
+│   │   ├── authMiddleware.js      # JWT RBAC route guards
+│   │   ├── errorMiddleware.js     # Global error handling
+│   │   └── uploadMiddleware.js    # Multer file upload sanitizer
+│   ├── models/
+│   │   ├── User.js          # User schema (Donor / Hospital / Admin)
+│   │   ├── Request.js       # Emergency request schema
+│   │   └── BridgeRequest.js # Inter-hospital transfer schema
 │   ├── routes/
-│   │   ├── authRoutes.js
 │   │   ├── adminRoutes.js
-│   │   ├── hospitalRoutes.js
-│   │   └── donorRoutes.js
+│   │   ├── authRoutes.js
+│   │   ├── donorRoutes.js
+│   │   └── hospitalRoutes.js
 │   └── services/
-│       └── pulseEngine.js   # Core emergency cascade logic
+│       ├── pulseEngine.js   # Atomic concurrency, sweeper & geo-matching
+│       └── twilioService.js # SMS & Voice telephony dispatcher
+│
 └── frontend/
+    ├── package.json         # React & Vite dependencies
+    ├── vite.config.js       # Proxy config to port 5000
     └── src/
-        ├── App.jsx           # Routes + SkeletonTheme
-        ├── index.css         # Global design tokens + utilities
-        ├── pages/
-        │   ├── LandingPage.jsx        # Donor registration
-        │   ├── LoginPage.jsx          # Donor / Hospital / Admin login
-        │   ├── HospitalRegistration.jsx # Decoupled hospital signup
-        │   ├── DonorDashboard.jsx
-        │   ├── HospitalDashboard.jsx
-        │   └── AdminDashboard.jsx
+        ├── index.css        # Global CSS design tokens & responsive utilities
         ├── context/
         │   ├── AuthContext.jsx
         │   └── SocketContext.jsx
+        ├── pages/
+        │   ├── LandingPage.jsx          # Public portal & donor registration
+        │   ├── LoginPage.jsx            # Unified role-based login
+        │   ├── HospitalRegistration.jsx # Hospital onboarding
+        │   ├── DonorDashboard.jsx       # Donor command center
+        │   ├── HospitalDashboard.jsx    # Hospital EOC console
+        │   └── AdminDashboard.jsx       # Super admin command grid
         └── styles/
             ├── AdminDashboard.css
             └── HospitalDashboard.css
@@ -132,89 +123,73 @@ LIFELINK/
 
 ---
 
-##  Deployment — AWS EC2 + Docker
+## ⚙️ Environment Variables (`backend/.env`)
 
-LIFELINK uses a **multi-stage Docker build** — the Vite frontend is compiled to a static bundle in Stage 1, then the compiled assets and Express backend are merged into a single lean production image in Stage 2.
+Create a `backend/.env` file with the following configuration:
 
+```env
+PORT=5000
+NODE_ENV=production
+MONGO_URI=mongodb://localhost:27017/LIFELINK
+JWT_SECRET=your_super_secret_jwt_key
+CLIENT_URL=http://localhost:5173
+
+# Optional: Twilio Configuration (Falls back to Mock Mode if omitted)
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_PHONE_NUMBER=your_twilio_phone_number
+```
+
+---
+
+## 🐳 Docker Build & AWS EC2 Deployment
+
+LIFELINK is configured for a single-container multi-stage build running on Node 20 LTS.
+
+### 1. Local Image Build & Test
 ```bash
-# 1. Clone the repository
-git clone https://github.com/yourusername/lifelink.git
-cd lifelink
-
-# 2. Set your environment variables (create backend/.env)
-# Required:
-#   MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/lifelink
-#   JWT_SECRET=your_super_secret_key
-#   PORT=5000
-#   NODE_ENV=production
-
-# 3. Build the Docker image
+# Build the Docker image
 docker build -t lifelink:latest .
 
-# 4. Run the container
-docker run -d \
-  -p 80:5000 \
-  --env-file backend/.env \
-  --name lifelink-app \
-  lifelink:latest
+# Run the container locally
+docker run -d -p 5000:5000 --name lifelink-app lifelink:latest
+
+# Verify live logs
+docker logs -f lifelink-app
 ```
 
-### EC2 Production Update Flow
-
+### 2. Push to Docker Registry (Docker Hub / AWS ECR)
 ```bash
-# On your build machine:
-docker build -t <registry>/lifelink:latest .
-docker push <registry>/lifelink:latest
+# Login to Docker
+docker login
 
-# On your EC2 instance:
-docker pull <registry>/lifelink:latest
-docker stop lifelink-app && docker rm lifelink-app
-docker run -d -p 80:5000 --env-file /home/ec2-user/.env --name lifelink-app <registry>/lifelink:latest
+# Tag the image
+docker tag lifelink:latest <YOUR_DOCKERHUB_USERNAME>/lifelink:latest
+
+# Push the image
+docker push <YOUR_DOCKERHUB_USERNAME>/lifelink:latest
+```
+
+### 3. Deploy to AWS EC2
+```bash
+# Connect to EC2
+ssh -i "your-key.pem" ubuntu@<YOUR_EC2_IP>
+
+# Pull and Run container on Port 80 (HTTP)
+docker pull <YOUR_DOCKERHUB_USERNAME>/lifelink:latest
+docker run -d -p 80:5000 --restart always --name lifelink-app <YOUR_DOCKERHUB_USERNAME>/lifelink:latest
 ```
 
 ---
 
-##  Key Design Decisions
+## 🔒 Security & Git Safety
 
-| Decision | Rationale |
-|---|---|
-| Single Docker container | Simplifies EC2 deployment; one port, one process |
-| `--omit=dev` in production | Keeps the final image lean by excluding Vite, ESLint, etc. |
-| Geospatial `2dsphere` index | Enables O(log n) proximity queries via MongoDB `$near` |
-| JWT `30d` expiry | Balance between security and UX for an MVP |
-| Lenis smooth scroll | Premium feel without breaking dashboard sticky layouts |
-| Skeleton screens | High-fidelity visual feedback while dashboard data loads |
-| Decoupled registration | Hospital registration on its own route; Landing Page is donor-only |
-| Centralized error middleware | Consistent error format; stack traces hidden in production |
+* Secrets and `.env` files are ignored by git via [`.gitignore`](.gitignore).
+* Passwords are encrypted using salted `bcryptjs` (10 rounds).
+* Uploaded files are checked for 5MB limit and sanitized in `uploadMiddleware.js`.
+* State mutations use atomic MongoDB operations to prevent double-booking.
 
 ---
 
-##  Documentation
-
-For a deep dive into the system architecture, detailed feature lists for every user role, and technical implementation details, please refer to the [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) file.
-
----
-
-##  Testing & Quality Assurance
-
-LIFELINK includes a comprehensive set of manual test cases designed to verify the integrity of the PulseEngine, real-time WebSocket communication, and role-based access controls. 
-
-Key testing areas cover:
-- **Authentication & RBAC:** Ensuring secure onboarding and strict boundary enforcement between Donors, Hospitals, and Admins.
-- **Real-Time Engine:** Validating the WebSocket cascade for emergency broadcasting and donor-hospital matching.
-- **Resilience:** Testing global error handling, network failure recovery, and graceful UI degradation.
-
-For detailed, step-by-step test execution scenarios, please refer to the [TESTING.md](TESTING.md) file.
-
----
-
-##  Future Roadmap
-
-- [ ] **Twilio Integration** — Real SMS and IVR voice cascade for donor alerts
-- [ ] **AI Blood Demand Prediction** — ML model trained on historical accident/surgery data
-- [ ] **Cold-Chain IoT Tracking** — Temperature monitoring during blood bridge transfers
-- [ ] **Blockchain Verification** — Chain-of-custody integrity for every donated unit
-- [ ] **Native Mobile Apps** — iOS/Android with background GPS proximity tracking
-- [ ] **Docker Compose** — Multi-container setup with Nginx reverse proxy for production
-
----
+## 📜 License
+ISC License — built for emergency life-saving response coordination.

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import {
   Globe,
   ShieldCheck,
@@ -22,6 +23,7 @@ import '../styles/AdminDashboard.css';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
+  const socket = useSocket();
   const [activeTab, setActiveTab] = useState('overview');
   const [verifSubTab, setVerifSubTab] = useState('hospitals'); // 'hospitals' or 'donors'
   const [pendingHospitals, setPendingHospitals] = useState([]);
@@ -78,6 +80,21 @@ const AdminDashboard = () => {
     }
   }, [user?.token]);
 
+  // Real-Time Grid Activity Listener
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleGridActivity = (activity) => {
+      console.log('[Admin Socket] Live Grid Activity:', activity);
+      fetchData(); // Refresh overview stats in real-time
+    };
+
+    socket.on('grid_activity', handleGridActivity);
+    return () => {
+      socket.off('grid_activity', handleGridActivity);
+    };
+  }, [socket]);
+
   const approveHospital = async (id) => {
     if (!window.confirm("Verify that you have inspected this hospital's license. Activate node?")) return;
     try {
@@ -95,6 +112,26 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error('Approve Hospital Error:', err);
       alert('Network error: Unable to verify hospital');
+    }
+  };
+
+  const rejectHospital = async (id) => {
+    if (!window.confirm("Are you sure you want to reject this hospital application?")) return;
+    try {
+      const res = await fetch(`/api/admin/reject-hospital/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Hospital Application Rejected.');
+        fetchData();
+      } else {
+        alert(data.message || 'Action failed');
+      }
+    } catch (err) {
+      console.error('Reject Hospital Error:', err);
+      alert('Network error: Unable to reject hospital');
     }
   };
 
@@ -118,12 +155,53 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleBridgeInitialize = (idx) => {
+  const rejectDonor = async (id) => {
+    if (!window.confirm("Are you sure you want to reject this donor registration?")) return;
+    try {
+      const res = await fetch(`/api/admin/reject-donor/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Donor Registration Rejected.');
+        fetchData();
+      } else {
+        alert(data.message || 'Action failed');
+      }
+    } catch (err) {
+      console.error('Reject Donor Error:', err);
+      alert('Network error: Unable to reject donor');
+    }
+  };
+
+  const handleBridgeInitialize = async (idx) => {
+    const sugg = bridgeSuggestions[idx];
+    if (!sugg) return;
     setConnectingBridgeId(idx);
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/admin/create-bridge', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fromHospId: sugg.fromHospitalId,
+          toHospId: sugg.toHospitalId,
+          bloodGroup: sugg.bloodGroup,
+          units: sugg.units || 2
+        })
+      });
+      if (res.ok) {
+        alert(`Bridge Corridor established between ${sugg.fromHospital} and ${sugg.toHospital}!`);
+        setBridgeSuggestions(prev => prev.filter((_, i) => i !== idx));
+      }
+    } catch (err) {
+      console.error('Bridge error:', err);
+    } finally {
       setConnectingBridgeId(null);
-      setBridgeSuggestions(prev => prev.filter((_, i) => i !== idx));
-    }, 2000);
+    }
   };
 
   if (loading) return (
@@ -378,7 +456,7 @@ const AdminDashboard = () => {
                           <button className="btn-v approve" onClick={() => approveHospital(hosp._id)} title="Approve Node">
                             <CheckCircle size={20} />
                           </button>
-                          <button className="btn-v reject" title="Reject / Fraud Check">
+                          <button className="btn-v reject" onClick={() => rejectHospital(hosp._id)} title="Reject / Fraud Check">
                             <XSquare size={20} />
                           </button>
                         </div>
@@ -407,7 +485,7 @@ const AdminDashboard = () => {
                           <button className="btn-v approve" onClick={() => approveDonor(donor._id)} title="Verify Donor">
                             <CheckCircle size={20} />
                           </button>
-                          <button className="btn-v reject" title="Reject Report">
+                          <button className="btn-v reject" onClick={() => rejectDonor(donor._id)} title="Reject Report">
                             <XSquare size={20} />
                           </button>
                         </div>
